@@ -1,0 +1,15 @@
+1: Login: PROBLEME RESOLU
+Quand je login avec un premier compte, il affiche automatiquement personne connectés chez les autres
+
+2: Logout: PROBLEME RESOLU
+Quand je log out avec un autre compte, il enlève bien les 2 personnes connecté (chez le premier utilisateur et donc le meme client aussi)
+mais après reconnection je n'arrive plus a voir la personne connecté (1er) dans le Client ou je viens de me connecter et vice versa
+3: Probleme de recherche: PROBLEME RESOLU
+Quand je cree de Client et que j'essaye de me connecter dans les 2 avec le meme utilisateur, il n'affiche pas d'erreur meme si il existe deja (mais il ne l'affiche pas a nouveau dans le serveur)
+
+
+
+4: ACCEPT_USER:
+Quand je me connecte sur un client et que je crée un autre client et que j'essaye de cliquer sur Accepter pour voir si il va pouvoir afficher le pid de l'autre (non) il me l'affiche alors que l'autre client n'est meme pas connecté
+DONC: de ce que j'ai constaté, il faut qu'avant de voir si on affiche le pid on doit mettre une condition où on regarde si le nom est affiché ou pas dans les cases personnes connectés
+
