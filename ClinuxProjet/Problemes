@@ -9,7 +9,7 @@ Quand je cree de Client et que j'essaye de me connecter dans les 2 avec le meme 
 
 
 
-4: ACCEPT_USER:
+4: ACCEPT_USER: PROBLEME RESOLU
 Quand je me connecte sur un client et que je crée un autre client et que j'essaye de cliquer sur Accepter pour voir si il va pouvoir afficher le pid de l'autre (non) il me l'affiche alors que l'autre client n'est meme pas connecté
 DONC: de ce que j'ai constaté, il faut qu'avant de voir si on affiche le pid on doit mettre une condition où on regarde si le nom est affiché ou pas dans les cases personnes connectés
 
