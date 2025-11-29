@@ -165,7 +165,6 @@ int main()
                               while (i < 6 && tab->connexions[i].pidFenetre != m.expediteur) i++;
                               tab->connexions[i].nom[0] = '\0';
                               strcpy(tab->connexions[i].nom, m.data2);
-
                               // Notifier tous les clients existants
                               for (int k = 0; k < 6; k++)
                               {
@@ -182,9 +181,7 @@ int main()
                               }
                               for (int k = 0; k < 6; k++)
                               {
-                                  if (tab->connexions[k].pidFenetre != 0 &&
-                                      tab->connexions[k].pidFenetre != m.expediteur &&
-                                      strlen(tab->connexions[k].nom) > 0)
+                                  if (tab->connexions[k].pidFenetre != 0 && tab->connexions[k].pidFenetre != m.expediteur && strlen(tab->connexions[k].nom) > 0)
                                   {
                                       MESSAGE add;
                                       add.type = m.expediteur;        // nouveau client
@@ -193,6 +190,16 @@ int main()
                                       strcpy(add.data1, tab->connexions[k].nom); // utilisateur déjà connecté
                                       msgsnd(idQ, &add, sizeof(MESSAGE)-sizeof(long), 0);
                                       kill(m.expediteur, SIGUSR1);
+                                      MESSAGE msg;
+                                      msg.type = m.expediteur;
+                                      msg.expediteur = getpid();
+                                      msg.requete = SEND;
+                                      strcpy(msg.data1, tab->connexions[k].nom);
+                                      strcpy(msg.texte, "s'est connecté");
+
+                                      msgsnd(idQ, &msg, sizeof(MESSAGE)-sizeof(long), 0);
+                                      kill(msg.type, SIGUSR1);
+
                                   }
                               }
                           }
@@ -252,9 +259,7 @@ int main()
                                 }
                                 for (int k = 0; k < 6; k++)
                                 {
-                                    if (tab->connexions[k].pidFenetre != 0 &&
-                                        tab->connexions[k].pidFenetre != m.expediteur &&
-                                        strlen(tab->connexions[k].nom) > 0)
+                                    if (tab->connexions[k].pidFenetre != 0 && tab->connexions[k].pidFenetre != m.expediteur && strlen(tab->connexions[k].nom) > 0)
                                     {
                                         MESSAGE add;
                                         add.type = m.expediteur;        // nouveau client
@@ -265,6 +270,21 @@ int main()
                                         kill(m.expediteur, SIGUSR1);
                                     }
                                 }
+                                for(int k = 0; k < 6; k++)
+                                {
+                                    if(tab->connexions[k].pidFenetre != 0 && tab->connexions[k].pidFenetre != m.expediteur && strlen(tab->connexions[k].nom) > 0)
+                                    {
+                                        MESSAGE msg;
+                                        msg.type = tab->connexions[k].pidFenetre;
+                                        msg.expediteur = getpid();
+                                        msg.requete = SEND;
+                                        strcpy(msg.data1, m.data2);        // nom du nouvel utilisateur
+                                        strcpy(msg.texte, "s'est connecté");
+
+                                        msgsnd(idQ, &msg, sizeof(MESSAGE)-sizeof(long), 0);
+                                        kill(msg.type, SIGUSR1);
+                                    }
+                                }
                               }
                               else
                               {
@@ -273,7 +293,6 @@ int main()
                               }
                           }
                       }
-
                       // Envoyer réponse LOGIN au client
                       reponse.type = m.expediteur;
                       reponse.expediteur = getpid();
@@ -299,16 +318,26 @@ int main()
                       {
                         if (tab->connexions[k].pidFenetre != 0 && tab->connexions[k].pidFenetre != m.expediteur) 
                         {
-                            MESSAGE notif;
-                            notif.type = tab->connexions[k].pidFenetre;
-                            notif.expediteur = getpid();
-                            notif.requete = REMOVE_USER; // Requête pour notifier qu'un utilisateur s'est déconnecté
-                            strcpy(notif.data1, deconnecte); // Nom de l'utilisateur qui s'est déconnecté
-                            if (msgsnd(idQ, &notif, sizeof(MESSAGE) - sizeof(long), 0) == -1) 
-                            {
-                                perror("(SERVEUR) Erreur envoi DELETE_USER");
-                            }
-                            kill(tab->connexions[k].pidFenetre, SIGUSR1); // Notifier le client
+                          MESSAGE notif;
+                          notif.type = tab->connexions[k].pidFenetre;
+                          notif.expediteur = getpid();
+                          notif.requete = REMOVE_USER; // Requête pour notifier qu'un utilisateur s'est déconnecté
+                          strcpy(notif.data1, deconnecte); // Nom de l'utilisateur qui s'est déconnecté
+                          if (msgsnd(idQ, &notif, sizeof(MESSAGE) - sizeof(long), 0) == -1) 
+                          {
+                              perror("(SERVEUR) Erreur envoi DELETE_USER");
+                          }
+                          kill(tab->connexions[k].pidFenetre, SIGUSR1); // Notifier le client
+  
+                          MESSAGE msg;
+                          msg.type = tab->connexions[k].pidFenetre;
+                          msg.expediteur = getpid();
+                          msg.requete = SEND;
+                          strcpy(msg.data1, deconnecte);        // nom du nouvel utilisateur
+                          strcpy(msg.texte, "vient de se deconnecter");
+
+                          msgsnd(idQ, &msg, sizeof(MESSAGE)-sizeof(long), 0);
+                          kill(msg.type, SIGUSR1);
                         }
                         for (int j = 0; j < 5; j++) 
                         {
@@ -383,6 +412,47 @@ int main()
 
       case SEND :  
                       fprintf(stderr,"(SERVEUR %d) Requete SEND reçue de %d\n",getpid(),m.expediteur);
+                      MESSAGE tmp;
+                      for (int i = 0; i < 6; i++) 
+                      {
+                          if (tab->connexions[i].pidFenetre != 0 && tab->connexions[i].pidFenetre == m.expediteur) 
+                          {
+                              // Chercher les cases qui ne sont pas vides
+                              for (int j = 0; j < 5; j++) 
+                              {
+                                  m.type = tab->connexions[i].autres[j];
+                                  if (m.type != 0)
+                                  {
+                                    for(k = 0; k < 6; k++)
+                                    {
+                                      if (tab->connexions[k].pidFenetre == m.type)
+                                      {
+                                        strcpy(m.data1, tab->connexions[i].nom);
+                                        m.requete = SEND;
+                                        if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1)
+                                        {
+                                          perror("(CLIENT) Erreur d'envoie de la requete SEND");
+                                          exit(1);
+                                        }
+                                        kill(m.type, SIGUSR1);
+                                        tmp = m;
+                                        tmp.requete = SEND;
+                                        tmp.type = m.expediteur;
+                                        strcpy(tmp.data1, tab->connexions[i].nom);
+                                        if (msgsnd(idQ, &tmp, sizeof(MESSAGE) - sizeof(long), 0) == -1)
+                                        {
+                                          perror("(CLIENT) Erreur d'envoie de la requete SEND");
+                                          exit(1);
+                                        }
+                                        kill(tmp.type, SIGUSR1);
+                                        break;         
+                                      }
+                                    }
+                                  }
+                              }
+                          break;
+                          }
+                      }
                       break; 
 
       case UPDATE_PUB :

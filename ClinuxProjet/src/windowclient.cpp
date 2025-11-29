@@ -407,6 +407,15 @@ void WindowClient::on_pushButtonLogin_clicked()
       msgctl(idQ, IPC_RMID, NULL);
       exit(1);
     }
+    MESSAGE tmp = login;
+    strcat(tmp.data2, "s'est connecté");
+    tmp.requete = SEND;
+    if (msgsnd(idQ, &tmp, sizeof(MESSAGE) - sizeof(long), 0) == -1)
+    {
+      perror("(CLIENT) Erreur d'envoie du logout");
+      msgctl(idQ, IPC_RMID, NULL);
+      exit(1);
+    }
     fprintf(stderr, "(CLIENT %d) Requete login envoyé\n", getpid());
 
 }
@@ -423,6 +432,15 @@ void WindowClient::on_pushButtonLogout_clicked()
       msgctl(idQ, IPC_RMID, NULL);
       exit(1);
     }
+    MESSAGE tmp = logout;
+    strcat(tmp.data2, "s'est deconnecté");
+    tmp.requete = SEND;
+    if (msgsnd(idQ, &tmp, sizeof(MESSAGE) - sizeof(long), 0) == -1)
+    {
+      perror("(CLIENT) Erreur d'envoie du logout");
+      msgctl(idQ, IPC_RMID, NULL);
+      exit(1);
+    }
     fprintf(stderr, "(CLIENT %d) Requete logout envoyé avec succès\n", getpid());
     logoutOK();
 }
@@ -430,6 +448,19 @@ void WindowClient::on_pushButtonLogout_clicked()
 void WindowClient::on_pushButtonEnvoyer_clicked()
 {
     // TO DO
+  MESSAGE snd;
+  snd.requete = SEND;
+  snd.type = SERVEUR;
+  snd.expediteur = getpid();
+  strcpy(snd.texte, getAEnvoyer());
+  if (msgsnd(idQ, &snd, sizeof(MESSAGE) - sizeof(long), 0) == -1)
+  {
+    perror("(CLIENT) Erreur d'envoie de la requete SEND");
+    msgctl(idQ, IPC_RMID, NULL);
+    exit(1);
+  }
+  fprintf(stderr, "(CLIENT %d), Requete SEND envoyé avec succès\n", getpid());
+  setAEnvoyer("");
 }
 
 void WindowClient::on_pushButtonConsulter_clicked()
@@ -640,7 +671,8 @@ void handlerSIGUSR1(int sig)
                       fprintf(stderr,"(CLIENT %d) Login OK\n",getpid());
                       w->loginOK();
                       w->dialogueMessage("Login...",m.texte); // Succes
-
+                      strcpy(m.texte, m.data2);
+                      strcat(m.texte, " s'est connecté");
                       strcpy(login.data1, m.data1);
                       login.type = SERVEUR; //server
                       login.requete = CONSULT;
@@ -687,6 +719,7 @@ void handlerSIGUSR1(int sig)
 
         case SEND :
                     // TO DO
+                    w->ajouteMessage(m.data1, m.texte);
                     break;
 
         case CONSULT :
