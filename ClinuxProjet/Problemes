@@ -1,5 +1,5 @@
 1: Login: PROBLEME RESOLU
-Quand je login avec un premier compte, il affiche automatiquement personne connectés chez les autres
+Quand je login avec un premier compte, il affiche automatiquement personne connectés chez les autres sans etre connecté sur les autres clients
 
 2: Logout: PROBLEME RESOLU
 Quand je log out avec un autre compte, il enlève bien les 2 personnes connecté (chez le premier utilisateur et donc le meme client aussi)
@@ -13,8 +13,13 @@ Quand je cree de Client et que j'essaye de me connecter dans les 2 avec le meme 
 Quand je me connecte sur un client et que je crée un autre client et que j'essaye de cliquer sur Accepter pour voir si il va pouvoir afficher le pid de l'autre (non) il me l'affiche alors que l'autre client n'est meme pas connecté
 DONC: de ce que j'ai constaté, il faut qu'avant de voir si on affiche le pid on doit mettre une condition où on regarde si le nom est affiché ou pas dans les cases personnes connectés
 
-5: SEND:
+5: SEND: PROBLEME RESOLU
 Quand j'envoie un message à 2 utilisateurs, l'utilisateur qui a envoyé le message reçoit 2 fois le meme message (il doit le recevoir 1 fois)
+Explication:
+J'avais mis le msgsnd tmp dans une boucle où on regardait les utilisateurs acceptés donc on envoyait 2 fois la requete send vers le client
 
-6: SEND (Login):
+6: SEND (Login): PROBLEME RESOLU
 Quand je me connecte avec un autre utilisateur, il n'affiche pas le nom de l'ancien utilisateur dans la boite de conversation (il doit l'afficher après connexion)
+Explication:
+J'ai mis une requete SEND pour afficher les utilisateurs connecté alors que je pouvais juste le mettre dans la case add_user et remove_user pour que quand on ajoute un client dans la table a droite on affiche aussi le client dans la boite de conversation et donc il va automatiquement afficher tout les clients dès qu'on se connecte
+Il y avait aussi celui de remove_user, et il faut faire attention à le mettre après le setPersonneConnecte(i, ""); sinon on l'affiche en couleur alors  qu'on veut l'afficher en noir (si on le met après, quand on va acceder à la fonction ajouteMessage on aura getPersonneConnecté directement = 0 parce qu'il n'y a plus de client sur la table des personnes connectés)

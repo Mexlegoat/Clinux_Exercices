@@ -407,15 +407,6 @@ void WindowClient::on_pushButtonLogin_clicked()
       msgctl(idQ, IPC_RMID, NULL);
       exit(1);
     }
-    MESSAGE tmp = login;
-    strcat(tmp.data2, "s'est connecté");
-    tmp.requete = SEND;
-    if (msgsnd(idQ, &tmp, sizeof(MESSAGE) - sizeof(long), 0) == -1)
-    {
-      perror("(CLIENT) Erreur d'envoie du logout");
-      msgctl(idQ, IPC_RMID, NULL);
-      exit(1);
-    }
     fprintf(stderr, "(CLIENT %d) Requete login envoyé\n", getpid());
 
 }
@@ -427,15 +418,6 @@ void WindowClient::on_pushButtonLogout_clicked()
     logout.expediteur = getpid();
     logout.requete = LOGOUT;
     if (msgsnd(idQ, &logout, sizeof(MESSAGE) - sizeof(long), 0) == -1)
-    {
-      perror("(CLIENT) Erreur d'envoie du logout");
-      msgctl(idQ, IPC_RMID, NULL);
-      exit(1);
-    }
-    MESSAGE tmp = logout;
-    strcat(tmp.data2, "s'est deconnecté");
-    tmp.requete = SEND;
-    if (msgsnd(idQ, &tmp, sizeof(MESSAGE) - sizeof(long), 0) == -1)
     {
       perror("(CLIENT) Erreur d'envoie du logout");
       msgctl(idQ, IPC_RMID, NULL);
@@ -671,8 +653,7 @@ void handlerSIGUSR1(int sig)
                       fprintf(stderr,"(CLIENT %d) Login OK\n",getpid());
                       w->loginOK();
                       w->dialogueMessage("Login...",m.texte); // Succes
-                      strcpy(m.texte, m.data2);
-                      strcat(m.texte, " s'est connecté");
+
                       strcpy(login.data1, m.data1);
                       login.type = SERVEUR; //server
                       login.requete = CONSULT;
@@ -700,6 +681,7 @@ void handlerSIGUSR1(int sig)
                     if (i <= 5)
                     {
                         w->setPersonneConnectee(i, nouveau); // ajoute le nom
+                        w->ajouteMessage(nouveau, "s'est connecté");
                     }
                     break;
 
@@ -712,6 +694,7 @@ void handlerSIGUSR1(int sig)
                       if (strcmp(p, nouveau) == 0)
                       {
                         w->setPersonneConnectee(i, ""); // supprime le nom de la liste
+                        w->ajouteMessage(nouveau, "vient de se déconnecté");
                         break;
                       }
                     }
