@@ -21,6 +21,7 @@ char* pShm;
 
 void handlerSIGUSR1(int sig);
 void handlerSIGUSR2(int sig);
+void handlerSIGALRM(int sig);
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -59,6 +60,17 @@ WindowClient::WindowClient(QWidget *parent):QMainWindow(parent),ui(new Ui::Windo
     if (sigaction(SIGUSR2, &B, NULL) == -1)
     {
       perror("Erreur d'armement de SIGUSR2");
+      exit(1);
+    }
+
+    // TIMEOUT
+    struct sigaction C;
+    C.sa_handler = handlerSIGALRM;
+    sigemptyset(&C.sa_mask);
+    C.sa_flags = 0;
+    if (sigaction(SIGALRM, &C, NULL) == -1)
+    {
+      perror("Erreur d'armement de SIGALARM");
       exit(1);
     }
     // Envoi d'une requete de connexion au serveur
@@ -429,6 +441,10 @@ void WindowClient::on_pushButtonLogout_clicked()
 
 void WindowClient::on_pushButtonEnvoyer_clicked()
 {
+  alarm(0);
+  timeOut = TIME_OUT;
+  setTimeOut(timeOut);
+  alarm(1);
     // TO DO
   MESSAGE snd;
   snd.requete = SEND;
@@ -454,6 +470,10 @@ void WindowClient::on_pushButtonConsulter_clicked()
 void WindowClient::on_pushButtonModifier_clicked()
 {
   // TO DO
+  alarm(0);
+  timeOut = TIME_OUT;
+  setTimeOut(timeOut);
+  alarm(1);
   // Envoi d'une requete MODIF1 au serveur
   MESSAGE m;
   // ...
@@ -489,7 +509,10 @@ void WindowClient::on_pushButtonModifier_clicked()
 void WindowClient::on_checkBox1_clicked(bool checked)
 {
     MESSAGE m;  
-
+    alarm(0);
+    timeOut = TIME_OUT;
+    setTimeOut(timeOut);
+    alarm(1);
     if (checked)
     {
         ui->checkBox1->setText("Accepté");
@@ -517,7 +540,11 @@ void WindowClient::on_checkBox1_clicked(bool checked)
 
 void WindowClient::on_checkBox2_clicked(bool checked)
 {
-    MESSAGE m;  
+    alarm(0);
+    timeOut = TIME_OUT;
+    setTimeOut(timeOut);
+    alarm(1);
+    MESSAGE m;
 
     if (checked)
     {
@@ -545,6 +572,10 @@ void WindowClient::on_checkBox2_clicked(bool checked)
 
 void WindowClient::on_checkBox3_clicked(bool checked)
 {
+    alarm(0);
+    timeOut = TIME_OUT;
+    setTimeOut(timeOut);
+    alarm(1);
     MESSAGE m;
 
     if (checked)
@@ -573,6 +604,10 @@ void WindowClient::on_checkBox3_clicked(bool checked)
 
 void WindowClient::on_checkBox4_clicked(bool checked)
 {
+    alarm(0);
+    timeOut = TIME_OUT;
+    setTimeOut(timeOut);
+    alarm(1);
     MESSAGE m;
 
     if (checked)
@@ -601,6 +636,10 @@ void WindowClient::on_checkBox4_clicked(bool checked)
 
 void WindowClient::on_checkBox5_clicked(bool checked)
 {
+    alarm(0);
+    timeOut = TIME_OUT;
+    setTimeOut(timeOut);
+    alarm(1);
     MESSAGE m;
 
     if (checked)
@@ -650,6 +689,9 @@ void handlerSIGUSR1(int sig)
         case LOGIN :
                     if (strcmp(m.data1,"1") == 0) 
                     {
+                      timeOut = TIME_OUT;
+                      w->setTimeOut(timeOut);
+                      alarm(1);
                       fprintf(stderr,"(CLIENT %d) Login OK\n",getpid());
                       w->loginOK();
                       w->dialogueMessage("Login...",m.texte); // Succes
@@ -715,4 +757,24 @@ void handlerSIGUSR1(int sig)
 void handlerSIGUSR2(int sig)
 {
   w->setPublicite(pShm);
+}
+void handlerSIGALRM(int sig)
+{
+  if (timeOut > 0) timeOut--;
+  w->setTimeOut(timeOut);
+  if(timeOut == 0)
+  {
+    MESSAGE m;
+    m.requete = LOGOUT;
+    m.expediteur = getpid();
+    m.type = SERVEUR;
+    if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1)
+    {
+        perror("(CLIENT) Erreur envoi requete LOGOUT (TIMEOUT)");
+        exit(1);
+    }
+    w->logoutOK();
+    alarm(0);
+  }
+  alarm(1);
 }
