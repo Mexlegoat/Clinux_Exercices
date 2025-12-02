@@ -358,7 +358,8 @@ void WindowClient::logoutOK()
   setAEnvoyer("");
   ui->lineEditAEnvoyer->setEnabled(false);
   ui->lineEditNomRenseignements->setEnabled(false);
-  setTimeOut(TIME_OUT);
+  timeOut = TIME_OUT;
+  setTimeOut(timeOut);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -429,6 +430,9 @@ void WindowClient::on_pushButtonLogout_clicked()
     logout.type = SERVEUR;
     logout.expediteur = getpid();
     logout.requete = LOGOUT;
+    alarm(0);
+    timeOut = TIME_OUT;
+    setTimeOut(timeOut);
     if (msgsnd(idQ, &logout, sizeof(MESSAGE) - sizeof(long), 0) == -1)
     {
       perror("(CLIENT) Erreur d'envoie du logout");
@@ -450,6 +454,11 @@ void WindowClient::on_pushButtonEnvoyer_clicked()
   snd.requete = SEND;
   snd.type = SERVEUR;
   snd.expediteur = getpid();
+  if (strlen(getAEnvoyer()) == 0)
+  {
+    dialogueErreur("Erreur Saisie", "Vous n'avez rien saisie");
+    return;
+  }
   strcpy(snd.texte, getAEnvoyer());
   if (msgsnd(idQ, &snd, sizeof(MESSAGE) - sizeof(long), 0) == -1)
   {
@@ -729,6 +738,7 @@ void handlerSIGUSR1(int sig)
 
         case REMOVE_USER :
                     // TO DO
+
                     nouveau = m.data1;
                     for (i = 1; i <= 5; i++)
                     {
@@ -775,6 +785,7 @@ void handlerSIGALRM(int sig)
     }
     w->logoutOK();
     alarm(0);
+    return; // sinon bug
   }
   alarm(1);
 }
