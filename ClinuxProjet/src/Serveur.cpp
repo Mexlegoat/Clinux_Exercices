@@ -73,7 +73,13 @@ int main()
     perror("(SERVEUR) Erreur de msgget");
     exit(EXIT_FAILURE);
   }
-
+  ;
+  if ((idShm = shmget(CLE, 200, IPC_CREAT | 0600)) == -1) {
+    perror("(SERVEUR) Erreur de shmget");
+    msgctl(idQ, IPC_RMID, NULL);
+    exit(EXIT_FAILURE);
+  }
+  fprintf(stderr,"(SERVEUR %d) memoire partagee cree idShm=%d\n", getpid(), idShm);
   // Initialisation du tableau de connexions
   fprintf(stderr,"(SERVEUR %d) Initialisation de la table des connexions\n",getpid());
   tab = (TAB_CONNEXIONS*) malloc(sizeof(TAB_CONNEXIONS)); 
@@ -428,6 +434,13 @@ int main()
 
       case UPDATE_PUB :
                       fprintf(stderr,"(SERVEUR %d) Requete UPDATE_PUB reçue de %d\n",getpid(),m.expediteur);
+                      for (int i = 0; i < 6; i++)
+                      {
+                        if(tab->connexions[i].pidFenetre != 0)
+                        {
+                          kill(tab->connexions[i].pidFenetre, SIGUSR2);
+                        }
+                      }
                       break;
 
       case CONSULT :
@@ -496,7 +509,7 @@ void HandlerSIGCHLD(int sig)
 }
 void HandlerSIGINT(int sig)
 {
-  fprintf(stderr, "\n(SERVEUR) CTRL C activé, on abat tout les processus 0-6 going dark\n");
+  fprintf(stderr, "\n(SERVEUR) CTRL C activé, on ferme tout les processus 0-6\n");
   // On ferme la file de message
   if ((msgctl(idQ, IPC_RMID, NULL)) == -1)
     fprintf(stderr, "(SERVEUR) Le serveur N'A PAS bien été fermer\n");

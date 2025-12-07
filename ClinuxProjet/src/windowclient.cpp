@@ -40,7 +40,18 @@ WindowClient::WindowClient(QWidget *parent):QMainWindow(parent),ui(new Ui::Windo
     }
     // Recuperation de l'identifiant de la mémoire partagée
     fprintf(stderr,"(CLIENT %d) Recuperation de l'id de la mémoire partagée\n",getpid());
+    if ((idShm = shmget(CLE, 0, 0)) == -1)
+    {
+      perror("(PUBLICITE) Erreur lors de la récupération de l'id de la mémoire partager");
+      exit(1);
+    }
 
+    // Attachement à la mémoire partagée
+    if ((pShm = (char *)shmat(idShm, NULL, 0)) == (char *)-1)
+    {
+      perror("(PUBLICITE) Erreur lors de l'attachement de la mémoire partager");
+      exit(1);
+    }
     // Attachement à la mémoire partagée
     // Armement des signaux
     struct sigaction A;

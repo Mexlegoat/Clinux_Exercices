@@ -22,28 +22,87 @@ int main()
 
   // Masquage de SIGINT
   sigset_t mask;
-  sigaddset(&mask,SIGINT);
-  sigprocmask(SIG_SETMASK,&mask,NULL);
+  sigfillset(&mask);
+  sigdelset(&mask, SIGUSR1);
+  sigprocmask(SIG_SETMASK, &mask, NULL);
 
-  // Recuperation de l'identifiant de la file de messages
-  fprintf(stderr,"(PUBLICITE %d) Recuperation de l'id de la file de messages\n",getpid());
+  fprintf(stderr, "(PUBLICITE %d) Recuperation de l'id de la file de messages\n", getpid());
+    idQ = msgget(CLE, 0);
+    if (idQ == -1)
+    {
+        perror("Erreur de la recup de l'id de la file");
+        exit(1);
+    }
 
-  // Recuperation de l'identifiant de la mémoire partagée
-  fprintf(stderr,"(PUBLICITE %d) Recuperation de l'id de la mémoire partagée\n",getpid());
+    // Récupération de l'identifiant de la mémoire partagée
+    fprintf(stderr, "(PUBLICITE %d) Recuperation de l'id de la mémoire partagée\n", getpid());
+    idShm = shmget(CLE, 200, 0);
+    if (idShm == -1)
+    {
+        perror("Erreur de la Recuperation de l'id de la mem partagee");
+        exit(1);
+    }
 
-  // Attachement à la mémoire partagée
+    // Attachement à la mémoire partagée
+    char* memPub = (char*)shmat(idShm, NULL, 0);
+    if (memPub == (char*)-1)
+    {
+        perror("Erreur d'attachement a la mem partagee");
+        exit(1);
+    }
 
-  // Ouverture du fichier de publicité
+    // Ouverture du fichier publicites.dat
+    fd = open("publicites.dat", O_RDONLY);
+    if (fd == -1)
+    {
+        perror("Erreur d'ouverture du fichier");
+        exit(1);
+    }
 
-  while(1)
-  {
-  	PUBLICITE pub;
-    // Lecture d'une publicité dans le fichier
+    fprintf(stderr, "(PUBLICITE %d) Debut boucle de publicites\n", getpid());
 
-    // Ecriture en mémoire partagée
+    while (1)
+    {
+        PUBLICITE pub;
+        
+        if (read(fd, &pub, sizeof(PUBLICITE)) == 0)
+        {
+            // Fin de fichier
+            lseek(fd, 0, SEEK_SET); // on recommence
+        }
+        else if (read(fd, &pub, sizeof(PUBLICITE)) < 0)
+        {
+            perror("Erreur lors de la lecture du fichier");
+            exit(1);
+        }
 
-    // Envoi d'une requete UPDATE_PUB au serveur
+        // Copier la publicité dans la mémoire partagée (200 chars)
+        strcpy(memPub, pub.texte);
 
-  }
+        // Envoi UPDATE_PUB au serveur
+        MESSAGE m;
+        m.type = 1;                // type quelconque (non utilisé)
+        m.expediteur = getpid();
+        m.requete = UPDATE_PUB;
+
+        if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1)
+        {
+            perror("Erreur lors de l'envoie de la requete UPDATE_PUB");
+            exit(1);
+        }
+
+        // Attente du nombre de secondes indiqué
+        if (pub.nbSecondes > 0)
+            sleep(pub.nbSecondes);
+    }
+
+    return 0;
 }
+void handlerSIGUSR1(int sig)
+{
+  fprintf(stderr, "(PUBLICITE %d) Nouvelle publicite !\n", getpid());
 
+  // Lecture message NEW_PUB
+
+  // Mise en place de la publicité en mémoire partagée
+}
