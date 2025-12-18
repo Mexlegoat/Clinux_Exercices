@@ -483,8 +483,22 @@ void WindowClient::on_pushButtonEnvoyer_clicked()
 
 void WindowClient::on_pushButtonConsulter_clicked()
 {
-    // TO DO
-
+  // TO DO
+  MESSAGE conslt;
+  const char* nom = getNomRenseignements();
+  if (nom == nullptr || strlen(nom) == 0) {
+      fprintf(stderr, "(CLIENT) Aucun nom renseigné pour CONSULT\n");
+      return;
+  }
+  strcpy(conslt.data1, nom);
+  conslt.type = SERVEUR; //server
+  conslt.requete = CONSULT;
+  conslt.expediteur = getpid();
+  if (msgsnd(idQ, &conslt, sizeof(MESSAGE) - sizeof(long), 0) == -1)
+  {
+    perror("(CLIENT) Erreur d'envoie de la requete CONSULT");
+    exit(1);
+  }
 }
 
 void WindowClient::on_pushButtonModifier_clicked()
@@ -496,11 +510,23 @@ void WindowClient::on_pushButtonModifier_clicked()
   alarm(1);
   // Envoi d'une requete MODIF1 au serveur
   MESSAGE m;
-  // ...
 
+  m.type = 1;                 // serveur
+  m.expediteur = getpid();
+  m.requete = MODIF1;
+
+  if (msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+  {
+    perror("(CLIENT) Erreur envoi MODIF1");
+    return;
+  }
   // Attente d'une reponse en provenance de Modification
   fprintf(stderr,"(CLIENT %d) Attente reponse MODIF1\n",getpid());
-  // ...
+  if (msgrcv(idQ, &m, sizeof(MESSAGE)-sizeof(long), getpid(), 0) == -1)
+  {
+    perror("(CLIENT) Erreur reception MODIF1");
+    return;
+  }
 
   // Verification si la modification est possible
   if (strcmp(m.data1,"KO") == 0 && strcmp(m.data2,"KO") == 0 && strcmp(m.texte,"KO") == 0)
@@ -520,7 +546,18 @@ void WindowClient::on_pushButtonModifier_clicked()
   strcpy(email,dialogue.getEmail());
 
   // Envoi des données modifiées au serveur
-  // ...
+  m.type = 1;              // serveur
+  m.expediteur = getpid();
+  m.requete = MODIF2;
+  strcpy(m.data1, motDePasse);
+  strcpy(m.data2, gsm);
+  strcpy(m.texte, email);
+
+  if (msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+  {
+    perror("(CLIENT) Erreur envoi MODIF2");
+    return;
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -697,6 +734,11 @@ void handlerSIGUSR1(int sig)
     int i;
     while (msgrcv(idQ, &m, sizeof(MESSAGE)- sizeof(long), getpid(), IPC_NOWAIT) != -1)
     {
+      if (m.requete == MODIF1)
+      {
+          continue;
+      }
+
       fprintf(stderr, " ---------------------\n");
       fprintf(stderr, "Requete Recu : \n");
       fprintf(stderr, " - Type de requète : %d \n", m.requete);
@@ -716,16 +758,7 @@ void handlerSIGUSR1(int sig)
                       w->loginOK();
                       w->dialogueMessage("Login...",m.texte); // Succes
 
-                      strcpy(login.data1, m.data1);
-                      login.type = SERVEUR; //server
-                      login.requete = CONSULT;
-                      login.expediteur = getpid();
-                      if (msgsnd(idQ, &login, sizeof(MESSAGE) - sizeof(long), 0) == -1)
-                      {
-                        perror("(CLIENT) Erreur d'envoie de la requete CONSULT");
-                        msgctl(idQ, IPC_RMID, NULL);
-                        exit(1);
-                      }
+                      
                     }
                     else w->dialogueErreur("Login...",m.texte); // Echec
                     break;
@@ -770,6 +803,17 @@ void handlerSIGUSR1(int sig)
 
         case CONSULT :
                   // TO DO
+                  fprintf(stderr,"(CLIENT) CONSULT reçu");
+                  if(strcmp(m.data1, "OK") == 0)
+                  {
+                    w->setGsm(m.data2);
+                    w->setEmail(m.texte);
+                  }
+                  else
+                  {
+                    w->setGsm("---");
+                    w->setEmail("---");
+                  }
                   break;
       }
     }

@@ -57,8 +57,6 @@ Modification: $(SRC)/Modification.cpp
 	$(COMP) $(SRC)/Modification.cpp -o Modification -I/usr/include/mysql -m64 -L/usr/lib64/mysql -lmysqlclient -lpthread -lz -lm -lrt -lssl -lcrypto -ldl
 
 
-# AccesBD: AccesBD.cpp
-# 	$(COMP) -o AccesBD AccesBD.cpp -I/usr/include/mysql -m64 -L/usr/lib64/mysql -lmysqlclient -lpthread -lz -lm -lrt -lssl -lcrypto -ldl
 clean:
 	rm -f *.o
 

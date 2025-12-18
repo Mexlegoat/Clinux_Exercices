@@ -15,11 +15,12 @@
 
 int idQ, idShm;
 int fd;
-
+char* memPub;
+void handlerSIGTERM(int sig);
 int main()
 {
   // Armement des signaux
-
+  signal(SIGTERM, handlerSIGTERM);
   // Masquage de SIGINT
   sigset_t mask;
   sigfillset(&mask);
@@ -44,7 +45,7 @@ int main()
     }
 
     // Attachement à la mémoire partagée
-    char* memPub = (char*)shmat(idShm, NULL, 0);
+    memPub = (char*)shmat(idShm, NULL, 0);
     if (memPub == (char*)-1)
     {
         perror("Erreur d'attachement a la mem partagee");
@@ -88,7 +89,7 @@ int main()
         if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1)
         {
             perror("Erreur lors de l'envoie de la requete UPDATE_PUB");
-            exit(1);
+            pause();
         }
 
         // Attente du nombre de secondes indiqué
@@ -105,4 +106,11 @@ void handlerSIGUSR1(int sig)
   // Lecture message NEW_PUB
 
   // Mise en place de la publicité en mémoire partagée
+}
+void handlerSIGTERM(int sig)
+{
+  fprintf(stderr, "(PUBLICITE %d) SIGTERM reçu, arrêt\n", getpid());
+  close(fd);
+  shmdt(memPub);
+  exit(0);
 }

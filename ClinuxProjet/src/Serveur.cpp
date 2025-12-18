@@ -20,7 +20,7 @@ int idQ,idShm,idSem;
 int fdPipe[2];
 //ID DES FILS
 int idFilsPub;
-int idFilsAccesBD;
+int pidModif, idFilsConsult;
 sigjmp_buf jumpBuffer;
 TAB_CONNEXIONS *tab;
 void HandlerSIGCHLD(int sig);
@@ -79,6 +79,29 @@ int main()
     msgctl(idQ, IPC_RMID, NULL);
     exit(EXIT_FAILURE);
   }
+  idSem = semget(CLE, 1, IPC_CREAT | 0600);
+  if (idSem == -1)
+  {
+    perror("(SERVEUR) Erreur semget");
+    exit(1);
+  }
+  union semun
+  {
+    int val;
+    struct semid_ds *buf;
+    unsigned short *array;
+  };
+
+  union semun arg;
+  arg.val = 1;
+
+  if (semctl(idSem, 0, SETVAL, arg) == -1)
+  {
+      perror("(SERVEUR) Erreur semctl SETVAL");
+      exit(1);
+  }
+
+  fprintf(stderr, "(SERVEUR) Sémaphore créé et initialisé à 1\n");    
   fprintf(stderr,"(SERVEUR %d) memoire partagee cree idShm=%d\n", getpid(), idShm);
   // Initialisation du tableau de connexions
   fprintf(stderr,"(SERVEUR %d) Initialisation de la table des connexions\n",getpid());
@@ -97,7 +120,6 @@ int main()
   tab->pidPublicite = 0;
 
   afficheTab();
-
   // Creation du processus Publicite
 
   int i,k,j, pid;
@@ -166,9 +188,12 @@ int main()
                       {
                           if (position == 0) // absent
                           {
+                              strcpy(reponse.data1, "1");
                               ajouteUtilisateur(m.data2, m.texte);
                               strcpy(reponse.texte, "Utilisateur ajouté\n");
                               i = 0;
+                              sprintf(requete,"insert into UNIX_FINAL values (NULL,'%s','%s','%s');",m.data2, "---", "---");
+                              mysql_query(connexion,requete);
                               while (i < 6 && tab->connexions[i].pidFenetre != m.expediteur) i++;
                               tab->connexions[i].nom[0] = '\0';
                               strcpy(tab->connexions[i].nom, m.data2);
@@ -445,14 +470,64 @@ int main()
 
       case CONSULT :
                       fprintf(stderr,"(SERVEUR %d) Requete CONSULT reçue de %d\n",getpid(),m.expediteur);
+
+                      idFilsConsult = fork();
+                      if(idFilsConsult == 0)
+                      {
+                        execl("./Consultation", "Consultation", NULL);
+                        perror("execl Consultation");
+                        exit(1);
+                      }
+
+                      m.type = idFilsConsult;
+                      if (msgsnd(idQ, &m, sizeof(MESSAGE) - sizeof(long), 0) == -1)
+                      {
+                          perror("(SERVEUR) Erreur envoi CONSULT");
+                          exit(1);
+                      }
                       break;
 
       case MODIF1 :
                       fprintf(stderr,"(SERVEUR %d) Requete MODIF1 reçue de %d\n",getpid(),m.expediteur);
+                      // trouver l'utilisateur
+                      i = 0;
+                      while (i < 6 && tab->connexions[i].pidFenetre != 0 && tab->connexions[i].pidFenetre != m.expediteur)
+                          i++;
+
+                      // sécurité
+                      if (i == 6) break;
+                      if (tab->connexions[i].pidModification != 0)
+                      {
+                          fprintf(stderr,
+                            "(SERVEUR) MODIF1 ignorée : déjà en cours\n");
+                          break;
+                      }
+
+                      pidModif = fork();
+                      if (pidModif == 0)
+                      {
+                          execl("./Modification", "Modification", NULL);
+                          perror("execl Modification");
+                          exit(1);
+                      }
+                      tab->connexions[i].pidModification = pidModif;
+                      strcpy(m.data1, tab->connexions[i].nom);
+                      // Transmettre la requête au processus Modification
+                      if (msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+                      {
+                          perror("msgsnd MODIF1");
+                          exit(1);
+                      }
                       break;
 
       case MODIF2 :
                       fprintf(stderr,"(SERVEUR %d) Requete MODIF2 reçue de %d\n",getpid(),m.expediteur);
+
+                      if (msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+                      {
+                          perror("msgsnd MODIF2");
+                          exit(1);
+                      }
                       break;
 
       case LOGIN_ADMIN :
@@ -509,40 +584,31 @@ void HandlerSIGCHLD(int sig)
 }
 void HandlerSIGINT(int sig)
 {
-  fprintf(stderr, "\n(SERVEUR) CTRL C activé, on ferme tout les processus 0-6\n");
-  // On ferme la file de message
-  if ((msgctl(idQ, IPC_RMID, NULL)) == -1)
-    fprintf(stderr, "(SERVEUR) Le serveur N'A PAS bien été fermer\n");
-  else
-    fprintf(stderr, "(SERVEUR) Le serveur à bien été fermer\n");
-
-  if ((shmctl(idShm, IPC_RMID, NULL)) == -1)
+  if (idFilsPub > 0)
   {
-    perror("Erreur de la fermeture de la mémoire partager \n");
-    exit(1);
+    kill(idFilsPub, SIGTERM);
+    waitpid(idFilsPub, NULL, 0);
+    idFilsPub = -1;
   }
 
-  //On tue le fils avant qu il essaye de retoucher à la mémoire partager
-  kill(idFilsPub, SIGKILL);
-  fprintf(stderr, "(SERVEUR) La mémoire partager à bien été fermer\n");
-
-  // On ferme la pipe de sortie
-  if (close(fdPipe[0]) == -1)
+  if (fdPipe[0] >= 0)
   {
-    perror("Erreur lors de la fermeture de la sortie du pipe \n");
-    exit(0);
+    close(fdPipe[0]);
+    fdPipe[0] = -1;
+    fprintf(stderr,"(SERVEUR) Pipe sortie fermé\n");
   }
-  fprintf(stderr, "(SERVEUR) La sortie du pipe à bien été fermer\n");
 
-  // On ferme la pipe d'entré
-  if (close(fdPipe[1]) == -1)
+  if (fdPipe[1] >= 0)
   {
-    perror("Erreur lors de la fermeture de l'entrée du pipe\n");
-    exit(0);
+    close(fdPipe[1]);
+    fdPipe[1] = -1;
+    fprintf(stderr,"(SERVEUR) Pipe entrée fermé\n");
   }
-  fprintf(stderr, "(SERVEUR) L'entrer du pipe à bien été fermer\n");
 
-  // on tue le fil AccesDB
-  kill(idFilsAccesBD, SIGKILL);
+  msgctl(idQ, IPC_RMID, NULL);
+  shmctl(idShm, IPC_RMID, NULL);
+  semctl(idSem, 0, IPC_RMID);
+
+  fprintf(stderr,"(SERVEUR) IPC supprimés\n");
   exit(0);
 }
