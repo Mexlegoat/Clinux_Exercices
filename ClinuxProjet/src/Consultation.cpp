@@ -46,7 +46,11 @@ int main()
   op.sem_op  = -1;  // prise bloquante
   op.sem_flg = 0;
 
-  semop(idSem, &op, 1);
+  if (semop(idSem, &op, 1) == -1)
+  {
+      perror("(CONSULTATION) semop take");
+      exit(1);
+  }
 
   // Connexion à la base de donnée
   MYSQL *connexion = mysql_init(NULL);
@@ -54,6 +58,7 @@ int main()
   if (mysql_real_connect(connexion,"localhost","Student","PassStudent1_","PourStudent",0,0,0) == NULL)
   {
     fprintf(stderr,"(CONSULTATION) Erreur de connexion à la base de données...\n");
+    fprintf(stderr,"(CONSULTATION) mysql_error: %s\n", mysql_error(connexion));
     exit(1);  
   }
 
@@ -62,11 +67,19 @@ int main()
   MYSQL_RES  *resultat;
   MYSQL_ROW  tuple;
   char requete[200];
-  char safe_nom[100];
-  mysql_real_escape_string(connexion, safe_nom, m.data1, strlen(m.data1));
   sprintf(requete, "SELECT gsm, email FROM UNIX_FINAL WHERE nom='%s'", m.data1);
-  mysql_query(connexion,requete);
+  if(mysql_query(connexion,requete) != 0)
+  {
+    fprintf(stderr,"(CONSULTATION) mysql_error: %s\n", mysql_error(connexion));
+    exit(1);
+  }
+
   resultat = mysql_store_result(connexion);
+  if(resultat == NULL)
+  {
+    fprintf(stderr,"(CONSULTATION) mysql_error: %s\n", mysql_error(connexion));
+    exit(1);
+  }
   // if ((tuple = mysql_fetch_row(resultat)) != NULL) ...
   if ((tuple = mysql_fetch_row(resultat)) == NULL)
   {
@@ -76,27 +89,17 @@ int main()
   }
   else
   {
+      strcpy(m.data1, "OK");
 
-    if (tuple == NULL)
-    {
-        strcpy(m.data1, "KO");
-        strcpy(m.data2, "---");
-        strcpy(m.texte, "---");
-    }
-    else
-    {
-        strcpy(m.data1, "OK");
+      if (tuple[0] != NULL)
+          strcpy(m.data2, tuple[0]);
+      else
+          strcpy(m.data2, "---");
 
-        if (tuple[0] != NULL)
-            strcpy(m.data2, tuple[0]);
-        else
-            strcpy(m.data2, "---");
-
-        if (tuple[1] != NULL)
-            strcpy(m.texte, tuple[1]);
-        else
-            strcpy(m.texte, "---");
-    }
+      if (tuple[1] != NULL)
+          strcpy(m.texte, tuple[1]);
+      else
+          strcpy(m.texte, "---");
   }
 
   m.type = m.expediteur;      // réponse vers client

@@ -34,7 +34,7 @@ int main()
   MESSAGE m;
   // Lecture de la requête MODIF1
   fprintf(stderr,"(MODIFICATION %d) Lecture requete MODIF1\n",getpid());
-  if (msgrcv(idQ, &m, sizeof(MESSAGE)-sizeof(long), MODIF1, 0) == -1)
+  if (msgrcv(idQ, &m, sizeof(MESSAGE)-sizeof(long), getpid(), 0) == -1)
   {
     perror("msgrcv MODIF1");
     exit(1);
@@ -74,7 +74,7 @@ int main()
   MYSQL_RES  *resultat;
   MYSQL_ROW  tuple;
   char requete[200];
-  sprintf(requete, "SELECT gsm,email FROM utilisateurs WHERE nom='%s'", nom);
+  sprintf(requete, "SELECT gsm,email FROM UNIX_FINAL WHERE nom='%s'", nom);
   mysql_query(connexion,requete);
   resultat = mysql_store_result(connexion);
   tuple = mysql_fetch_row(resultat); // user existe forcement
@@ -87,10 +87,13 @@ int main()
   m.type = m.expediteur;
 
   msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0);
+  fprintf(stderr,
+ "(MODIFICATION %d) Réponse MODIF1 envoyée vers PID %d\n",
+ getpid(), m.type);
   
   // Attente de la requête MODIF2
   fprintf(stderr,"(MODIFICATION %d) Attente requete MODIF2...\n",getpid());
-  if (msgrcv(idQ, &m, sizeof(MESSAGE)-sizeof(long), MODIF2, 0) == -1)
+  if (msgrcv(idQ, &m, sizeof(MESSAGE)-sizeof(long), getpid(), 0) == -1)
   {
     perror("msgrcv MODIF2");
     exit(1);

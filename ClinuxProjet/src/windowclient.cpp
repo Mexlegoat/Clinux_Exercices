@@ -9,6 +9,7 @@ extern WindowClient *w;
 #include "protocole.h"
 #include <sys/types.h>
 #include <sys/ipc.h>
+#include <errno.h>
 #include <sys/msg.h>
 #include <sys/shm.h>
 #include <signal.h>
@@ -57,7 +58,7 @@ WindowClient::WindowClient(QWidget *parent):QMainWindow(parent),ui(new Ui::Windo
     struct sigaction A;
     A.sa_handler = handlerSIGUSR1;
     sigemptyset(&A.sa_mask);
-    A.sa_flags = 0;
+    A.sa_flags = SA_RESTART;
     if (sigaction(SIGUSR1, &A, NULL) == -1)
     {
       perror("Erreur d'armement de SIGUSR1");
@@ -67,7 +68,7 @@ WindowClient::WindowClient(QWidget *parent):QMainWindow(parent),ui(new Ui::Windo
     struct sigaction B;
     B.sa_handler = handlerSIGUSR2;
     sigemptyset(&B.sa_mask);
-    B.sa_flags = 0;
+    B.sa_flags = SA_RESTART;
     if (sigaction(SIGUSR2, &B, NULL) == -1)
     {
       perror("Erreur d'armement de SIGUSR2");
@@ -78,7 +79,7 @@ WindowClient::WindowClient(QWidget *parent):QMainWindow(parent),ui(new Ui::Windo
     struct sigaction C;
     C.sa_handler = handlerSIGALRM;
     sigemptyset(&C.sa_mask);
-    C.sa_flags = 0;
+    C.sa_flags = SA_RESTART;
     if (sigaction(SIGALRM, &C, NULL) == -1)
     {
       perror("Erreur d'armement de SIGALARM");
@@ -508,6 +509,7 @@ void WindowClient::on_pushButtonModifier_clicked()
   timeOut = TIME_OUT;
   setTimeOut(timeOut);
   alarm(1);
+  int r;
   // Envoi d'une requete MODIF1 au serveur
   MESSAGE m;
 
@@ -525,6 +527,7 @@ void WindowClient::on_pushButtonModifier_clicked()
   if (msgrcv(idQ, &m, sizeof(MESSAGE)-sizeof(long), getpid(), 0) == -1)
   {
     perror("(CLIENT) Erreur reception MODIF1");
+    fprintf(stderr, "errno=%d\n", errno);
     return;
   }
 
@@ -734,10 +737,6 @@ void handlerSIGUSR1(int sig)
     int i;
     while (msgrcv(idQ, &m, sizeof(MESSAGE)- sizeof(long), getpid(), IPC_NOWAIT) != -1)
     {
-      if (m.requete == MODIF1)
-      {
-          continue;
-      }
 
       fprintf(stderr, " ---------------------\n");
       fprintf(stderr, "Requete Recu : \n");

@@ -10,6 +10,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <string.h>
+#include <errno.h>
 #include <unistd.h>
 #include <mysql.h>
 #include <setjmp.h>
@@ -148,7 +149,12 @@ int main()
   	fprintf(stderr,"(SERVEUR %d) Attente d'une requete...\n",getpid());
     if (msgrcv(idQ,&m,sizeof(MESSAGE)-sizeof(long),1,0) == -1)
     {
-      perror("(SERVEUR) Erreur de msgrcv");
+      if (errno == EINTR)
+      {
+          // Interruption par signal : PAS une erreur
+          continue;   // boucle
+      }
+      perror("(SERVEUR) Erreur de msgrcv ");
       msgctl(idQ,IPC_RMID,NULL);
       exit(1);
     }
@@ -512,6 +518,7 @@ int main()
                       }
                       tab->connexions[i].pidModification = pidModif;
                       strcpy(m.data1, tab->connexions[i].nom);
+                      m.type = pidModif;
                       // Transmettre la requête au processus Modification
                       if (msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
                       {
@@ -522,7 +529,23 @@ int main()
 
       case MODIF2 :
                       fprintf(stderr,"(SERVEUR %d) Requete MODIF2 reçue de %d\n",getpid(),m.expediteur);
+                      i = 0;
+                      while (i < 6 &&
+                             tab->connexions[i].pidFenetre != 0 &&
+                             tab->connexions[i].pidFenetre != m.expediteur)
+                          i++;
 
+                      if (i == 6)
+                          break;
+
+                      pidModif = tab->connexions[i].pidModification;
+                      if (pidModif == 0)
+                      {
+                          fprintf(stderr,"(SERVEUR) MODIF2 sans MODIF1\n");
+                          break;
+                      }
+
+                      m.type = pidModif;
                       if (msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
                       {
                           perror("msgsnd MODIF2");
@@ -572,16 +595,6 @@ void afficheTab()
   fprintf(stderr,"\n");
 }
 
-void HandlerSIGCHLD(int sig)
-{
-  printf("(SERVEUR) SIGCHILD reçu");
-  int status, pid, i = 0;
-  pid = wait(&status);
-  while (i < 6 && tab->connexions[i].pidModification != pid)
-    i++;
-  tab->connexions[i].pidModification = 0;
-  siglongjmp(jumpBuffer, 1);
-}
 void HandlerSIGINT(int sig)
 {
   if (idFilsPub > 0)
@@ -611,4 +624,13 @@ void HandlerSIGINT(int sig)
 
   fprintf(stderr,"(SERVEUR) IPC supprimés\n");
   exit(0);
+}
+void HandlerSIGCHLD(int sig)
+{
+  int status, pid, i = 0;
+  pid = wait(&status);
+  // while (i < 6 && tab->connexions[i].pidModification != pid)
+  //   i++;
+  // tab->connexions[i].pidModification = 0;
+  // siglongjmp(jumpBuffer, 1);
 }
