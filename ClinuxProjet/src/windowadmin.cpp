@@ -18,6 +18,15 @@ WindowAdmin::WindowAdmin(QWidget *parent):QMainWindow(parent),ui(new Ui::WindowA
 
 WindowAdmin::~WindowAdmin()
 {
+  MESSAGE m;
+  m.type = 1;
+  m.expediteur = getpid();
+  m.requete = LOGOUT_ADMIN;
+  if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+  {
+    perror("msgsnd LOGOUT_ADMIN");
+    exit(1);
+  }
     delete ui;
 }
 
@@ -113,20 +122,88 @@ void WindowAdmin::dialogueErreur(const char* titre,const char* message)
 void WindowAdmin::on_pushButtonAjouterUtilisateur_clicked()
 {
   // TO DO
+  MESSAGE m;
+  strcpy(m.data1, getNom());
+  strcpy(m.data2, getMotDePasse());
+  m.type = 1;
+  m.expediteur = getpid();
+  m.requete = NEW_USER;
+  if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+  {
+    perror("msgsnd NEW_USER");
+    exit(1);
+  }
+  // Attente de l'arrivé du message du Serveur
+  if (msgrcv(idQ, &m, sizeof(MESSAGE)-sizeof(long), getpid(), 0) == -1)
+  {
+      perror("msgrcv NEW_USER");
+      exit(1);
+  }
+  if(strcmp(m.data1, "OK") == 0)
+  {
+    dialogueMessage("Ajouter Utilisateur", m.texte);
+  }
+  else
+  {
+    dialogueErreur("Ajouter Utilisateur", m.texte);
+  }
 }
 
 void WindowAdmin::on_pushButtonSupprimerUtilisateur_clicked()
 {
   // TO DO
+  MESSAGE m;
+  strcpy(m.data1, getNom());
+  m.type = 1;
+  m.expediteur = getpid();
+  m.requete = DELETE_USER;
+  if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+  {
+    perror("msgsnd DELETE_USER");
+    exit(1);
+  }
+  if (msgrcv(idQ, &m, sizeof(MESSAGE)-sizeof(long), getpid(), 0) == -1)
+  {
+      perror("msgrcv NEW_USER");
+      exit(1);
+  }
+    if(strcmp(m.data1, "OK") == 0)
+  {
+    dialogueMessage("Supprimer Utilisateur", m.texte);
+  }
+  else
+  {
+    dialogueErreur("Supprimer Utilisateur", m.texte);
+  }
 }
 
 void WindowAdmin::on_pushButtonAjouterPublicite_clicked()
 {
   // TO DO
+  MESSAGE m;
+  sprintf(m.data1, "%d", getNbSecondes());
+  strcpy(m.texte, getTexte());
+  m.type = 1;
+  m.expediteur = getpid();
+  m.requete = NEW_PUB;
+  if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+  {
+    perror("msgsnd NEW_PUB");
+    exit(1);
+  }
 }
 
 void WindowAdmin::on_pushButtonQuitter_clicked()
 {
   // TO DO
+  MESSAGE m;
+  m.type = 1;
+  m.expediteur = getpid();
+  m.requete = LOGOUT_ADMIN;
+  if(msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+  {
+    perror("msgsnd LOGOUT_ADMIN");
+    exit(1);
+  }
   exit(0);
 }

@@ -105,3 +105,46 @@ int listeUtilisateurs(UTILISATEUR *vecteur) // le vecteur doit etre suffisamment
 
   return cpt;
 }
+void supprimerUtilisateur(const char* nom)
+{
+  int fd = open(FICHIER_UTILISATEURS, O_RDONLY);
+    if (fd == -1)
+    {
+        perror("open");
+        return;
+    }
+
+    int fdTmp = open("tmp.dat", O_CREAT | O_WRONLY | O_TRUNC, 0600);
+    if (fdTmp == -1)
+    {
+        perror("open tmp");
+        close(fd);
+        return;
+    }
+
+    UTILISATEUR user;
+    int trouve = 0;
+
+    while (read(fd, &user, sizeof(UTILISATEUR)) == sizeof(UTILISATEUR))
+    {
+        if (strcmp(user.nom, nom) == 0)
+        {
+            trouve = 1;
+            continue; // ne pas écrire cet utilisateur (on saute le write)
+        }
+        write(fdTmp, &user, sizeof(UTILISATEUR));
+    }
+
+    close(fd);
+    close(fdTmp);
+
+    if (!trouve)
+    {
+        unlink("tmp.dat");       // rien à supprimer
+        return;
+    }
+
+    // Remplacer l'ancien fichier par le nouveau
+    unlink(FICHIER_UTILISATEURS);
+    rename("tmp.dat", FICHIER_UTILISATEURS);
+}

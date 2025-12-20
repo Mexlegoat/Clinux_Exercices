@@ -18,9 +18,9 @@
 #include "FichierUtilisateur.h"
 
 int idQ,idShm,idSem;
-int fdPipe[2];
 //ID DES FILS
 int idFilsPub;
+int fd;
 int pidModif, idFilsConsult;
 sigjmp_buf jumpBuffer;
 TAB_CONNEXIONS *tab;
@@ -123,19 +123,19 @@ int main()
   afficheTab();
   // Creation du processus Publicite
 
-  int i,k,j, pid;
+  int i,k,j;
   MESSAGE m;
   MESSAGE reponse;
   char requete[200];
   MYSQL_RES  *resultat;
   MYSQL_ROW  tuple;
   PUBLICITE pub;
-  pid = fork();
-  if (pid == 0) 
+  idFilsPub = fork();
+  if (idFilsPub == 0) 
   {
     execl("./Publicite", "./Publicite", NULL);
   }
-  tab->pidPublicite = pid;
+  tab->pidPublicite = idFilsPub;
   while(1)
   {
     bool isFalse = false;
@@ -170,7 +170,6 @@ int main()
                           break;
                         }
                       }
-                      fprintf(stderr, "(SERVEUR) Trop de client");
                       break;
 
       case DECONNECT :  
@@ -555,22 +554,118 @@ int main()
 
       case LOGIN_ADMIN :
                       fprintf(stderr,"(SERVEUR %d) Requete LOGIN_ADMIN reçue de %d\n",getpid(),m.expediteur);
+
+                      if(tab->pidAdmin == 0)
+                      {
+                        tab->pidAdmin = m.expediteur;
+                        strcpy(m.data1, "OK");
+                        m.type = m.expediteur;
+                        m.expediteur = getpid();
+                        if (msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+                        {
+                            perror("msgsnd LOGIN_ADMIN");
+                            exit(1);
+                        }
+                      }
+                      else
+                      {
+                        strcpy(m.data1, "KO");
+                        m.type = m.expediteur;
+                        m.expediteur = getpid();
+                        if (msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+                        {
+                            perror("msgsnd LOGIN_ADMIN");
+                            exit(1);
+                        }
+                      }
                       break;
 
       case LOGOUT_ADMIN :
                       fprintf(stderr,"(SERVEUR %d) Requete LOGOUT_ADMIN reçue de %d\n",getpid(),m.expediteur);
+                      if(m.expediteur == tab->pidAdmin)
+                      {
+                        tab->pidAdmin = 0;
+                      }
                       break;
 
       case NEW_USER :
                       fprintf(stderr,"(SERVEUR %d) Requete NEW_USER reçue de %d : --%s--%s--\n",getpid(),m.expediteur,m.data1,m.data2);
+                      position = estPresent(m.data1);
+                      if(position == 0)
+                      {
+                        ajouteUtilisateur(m.data1, m.data2);
+                        sprintf(requete,"insert into UNIX_FINAL values (NULL,'%s','%s','%s');",m.data1, "---", "---");
+                        mysql_query(connexion,requete);
+                        strcpy(m.data1, "OK");
+                        strcpy(m.texte, "Utilisateur ajouté à la base de donnée");
+                        m.type = m.expediteur;
+                        m.expediteur = getpid();
+
+                      }
+                      else
+                      {
+                        strcpy(m.data1, "KO");
+                        strcpy(m.texte, "Utilisateur existe déjà");
+                        m.type = m.expediteur;
+                        m.expediteur = getpid();
+                      }
+                      if (msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+                      {
+                          perror("msgsnd NEW_USER");
+                          exit(1);
+                      }
                       break;
 
       case DELETE_USER :
                       fprintf(stderr,"(SERVEUR %d) Requete DELETE_USER reçue de %d : --%s--\n",getpid(),m.expediteur,m.data1);
+                      position = estPresent(m.data1);
+                      if(position != 0)
+                      {
+                        supprimerUtilisateur(m.data1);
+                        sprintf(requete, "DELETE FROM UNIX_FINAL WHERE nom='%s'", m.data1);
+                        mysql_query(connexion, requete);
+                        strcpy(m.data1, "OK");
+                        strcpy(m.texte, "Utilisateur supprimé de la base de donnée");
+                        m.type = m.expediteur;
+                        m.expediteur = getpid();
+
+                      }
+                      else
+                      {
+                        strcpy(m.data1, "KO");
+                        strcpy(m.texte, "Utilisateur existe déjà");
+                        m.type = m.expediteur;
+                        m.expediteur = getpid();
+                      }
+                      if (msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
+                      {
+                          perror("msgsnd DELETE_USER");
+                          exit(1);
+                      }
                       break;
 
       case NEW_PUB :
                       fprintf(stderr,"(SERVEUR %d) Requete NEW_PUB reçue de %d\n",getpid(),m.expediteur);
+                      fd = open("publicites.dat", O_CREAT | O_APPEND | O_WRONLY, 0644);
+                      if (fd == -1)
+                      {
+                        perror("ouverture publicites.dat");
+                        break;
+                      }
+                      PUBLICITE p;
+                      strcpy(p.texte, m.texte);
+                      p.nbSecondes = atoi(m.data1);
+
+                      if (write(fd,&p,sizeof(PUBLICITE)) != sizeof(PUBLICITE))
+                      {
+                        perror("Erreur de write");
+                        exit(1);
+                      }
+                      close(fd);
+
+                      if (tab->pidPublicite > 0)
+                        kill(tab->pidPublicite, SIGUSR1);
+
                       break;
     }
     afficheTab();
@@ -604,20 +699,6 @@ void HandlerSIGINT(int sig)
     idFilsPub = -1;
   }
 
-  if (fdPipe[0] >= 0)
-  {
-    close(fdPipe[0]);
-    fdPipe[0] = -1;
-    fprintf(stderr,"(SERVEUR) Pipe sortie fermé\n");
-  }
-
-  if (fdPipe[1] >= 0)
-  {
-    close(fdPipe[1]);
-    fdPipe[1] = -1;
-    fprintf(stderr,"(SERVEUR) Pipe entrée fermé\n");
-  }
-
   msgctl(idQ, IPC_RMID, NULL);
   shmctl(idShm, IPC_RMID, NULL);
   semctl(idSem, 0, IPC_RMID);
@@ -629,8 +710,7 @@ void HandlerSIGCHLD(int sig)
 {
   int status, pid, i = 0;
   pid = wait(&status);
-  // while (i < 6 && tab->connexions[i].pidModification != pid)
-  //   i++;
-  // tab->connexions[i].pidModification = 0;
-  // siglongjmp(jumpBuffer, 1);
+  while (i < 6 && tab->connexions[i].pidModification != pid)
+    i++;
+  tab->connexions[i].pidModification = 0;
 }

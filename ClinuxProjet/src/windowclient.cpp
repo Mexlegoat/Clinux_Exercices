@@ -485,6 +485,10 @@ void WindowClient::on_pushButtonEnvoyer_clicked()
 void WindowClient::on_pushButtonConsulter_clicked()
 {
   // TO DO
+  alarm(0);
+  timeOut = TIME_OUT;
+  setTimeOut(timeOut);
+  alarm(1);
   MESSAGE conslt;
   const char* nom = getNomRenseignements();
   if (nom == nullptr || strlen(nom) == 0) {
@@ -505,10 +509,8 @@ void WindowClient::on_pushButtonConsulter_clicked()
 void WindowClient::on_pushButtonModifier_clicked()
 {
   // TO DO
-  alarm(0);
   timeOut = TIME_OUT;
   setTimeOut(timeOut);
-  alarm(1);
   int r;
   // Envoi d'une requete MODIF1 au serveur
   MESSAGE m;

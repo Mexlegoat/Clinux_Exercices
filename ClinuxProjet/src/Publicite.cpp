@@ -15,17 +15,19 @@
 
 int idQ, idShm;
 int fd;
+int reveil = 0;
 char* memPub;
 void handlerSIGTERM(int sig);
+void handlerSIGUSR1(int sig);
 int main()
 {
   // Armement des signaux
+  signal(SIGUSR1, handlerSIGUSR1);
   signal(SIGTERM, handlerSIGTERM);
   // Masquage de SIGINT
   sigset_t mask;
-  sigfillset(&mask);
-  sigdelset(&mask, SIGUSR1);
-  sigprocmask(SIG_SETMASK, &mask, NULL);
+  sigaddset(&mask,SIGINT);
+  sigprocmask(SIG_SETMASK,&mask,NULL);
 
   fprintf(stderr, "(PUBLICITE %d) Recuperation de l'id de la file de messages\n", getpid());
     idQ = msgget(CLE, 0);
@@ -53,11 +55,12 @@ int main()
     }
 
     // Ouverture du fichier publicites.dat
-    fd = open("publicites.dat", O_RDONLY);
-    if (fd == -1)
+    while ((fd = open("publicites.dat", O_RDONLY)) == -1)
     {
-        perror("Erreur d'ouverture du fichier");
-        exit(1);
+      fprintf(stderr, "(PUBLICITE %d) Fichier absent, attente SIGUSR1...\n", getpid());
+      reveil = 0;
+      while (!reveil)
+        pause();   // attente du signal
     }
 
     fprintf(stderr, "(PUBLICITE %d) Debut boucle de publicites\n", getpid());
@@ -65,13 +68,14 @@ int main()
     while (1)
     {
         PUBLICITE pub;
+        int r = read(fd, &pub, sizeof(PUBLICITE));
         
-        if (read(fd, &pub, sizeof(PUBLICITE)) == 0)
+        if (r == 0)
         {
             // Fin de fichier
             lseek(fd, 0, SEEK_SET); // on recommence
         }
-        else if (read(fd, &pub, sizeof(PUBLICITE)) < 0)
+        else if (r < 0)
         {
             perror("Erreur lors de la lecture du fichier");
             exit(1);
@@ -102,10 +106,7 @@ int main()
 void handlerSIGUSR1(int sig)
 {
   fprintf(stderr, "(PUBLICITE %d) Nouvelle publicite !\n", getpid());
-
-  // Lecture message NEW_PUB
-
-  // Mise en place de la publicité en mémoire partagée
+  reveil = 1;
 }
 void handlerSIGTERM(int sig)
 {
