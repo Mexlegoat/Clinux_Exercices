@@ -22,7 +22,6 @@ int idQ,idShm,idSem;
 int idFilsPub;
 int fd;
 int pidModif, idFilsConsult;
-sigjmp_buf jumpBuffer;
 TAB_CONNEXIONS *tab;
 void HandlerSIGCHLD(int sig);
 void HandlerSIGINT(int sig);
