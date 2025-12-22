@@ -122,6 +122,7 @@ int main()
   op.sem_op = 1;   // libérer
   op.sem_flg = 0;
   semop(idSem, &op, 1);
+  kill(m.expediteur, SIGCHLD);
 
   exit(0);
 }

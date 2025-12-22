@@ -542,7 +542,7 @@ int main()
                           fprintf(stderr,"(SERVEUR) MODIF2 sans MODIF1\n");
                           break;
                       }
-
+                      m.expediteur = getpid();
                       m.type = pidModif;
                       if (msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
                       {
