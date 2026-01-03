@@ -53,7 +53,6 @@ WindowClient::WindowClient(QWidget *parent):QMainWindow(parent),ui(new Ui::Windo
       perror("(PUBLICITE) Erreur lors de l'attachement de la mémoire partager");
       exit(1);
     }
-    // Attachement à la mémoire partagée
     // Armement des signaux
     struct sigaction A;
     A.sa_handler = handlerSIGUSR1;
@@ -766,17 +765,16 @@ void handlerSIGUSR1(int sig)
 
         case ADD_USER :
                     nouveau = m.data1;
-                    // Cherche la première case vide
                     for (i = 1; i <= 5; i++)
                     {
                         p = w->getPersonneConnectee(i);
-                        if (strlen(p) == 0)   // place libre
+                        if (strlen(p) == 0)  
                             break;
                     }
-                    // S'il y a de la place
+                    // place
                     if (i <= 5)
                     {
-                        w->setPersonneConnectee(i, nouveau); // ajoute le nom
+                        w->setPersonneConnectee(i, nouveau);
                         w->ajouteMessage(nouveau, "s'est connecté");
                     }
                     break;
@@ -790,7 +788,7 @@ void handlerSIGUSR1(int sig)
                       p = w->getPersonneConnectee(i);
                       if (strcmp(p, nouveau) == 0)
                       {
-                        w->setPersonneConnectee(i, ""); // supprime le nom de la liste
+                        w->setPersonneConnectee(i, "");
                         w->ajouteMessage(nouveau, "vient de se déconnecté");
                         break;
                       }
@@ -841,7 +839,7 @@ void handlerSIGALRM(int sig)
     }
     w->logoutOK();
     alarm(0);
-    return; // sinon bug
+    return;
   }
   alarm(1);
 }

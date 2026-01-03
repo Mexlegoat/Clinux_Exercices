@@ -18,7 +18,6 @@
 #include "FichierUtilisateur.h"
 
 int idQ,idShm,idSem;
-//ID DES FILS
 int idFilsPub;
 int fd;
 int pidModif, idFilsConsult;
@@ -150,8 +149,8 @@ int main()
     {
       if (errno == EINTR)
       {
-          // Interruption par signal : PAS une erreur
-          continue;   // boucle
+          // Interruption
+          continue;   // skip
       }
       perror("(SERVEUR) Erreur de msgrcv ");
       msgctl(idQ,IPC_RMID,NULL);
@@ -188,7 +187,7 @@ int main()
                       MESSAGE reponse;
                       position = estPresent(m.data2);
 
-                      if (strcmp(m.data1, NVCLIENT) == 0) // Nouveau client
+                      if (strcmp(m.data1, NVCLIENT) == 0) 
                       {
                           if (position == 0) // absent
                           {
@@ -201,7 +200,7 @@ int main()
                               while (i < 6 && tab->connexions[i].pidFenetre != m.expediteur) i++;
                               tab->connexions[i].nom[0] = '\0';
                               strcpy(tab->connexions[i].nom, m.data2);
-                              // Notifier tous les clients existants
+                              // clients
                               for (int k = 0; k < 6; k++)
                               {
                                   if (tab->connexions[k].pidFenetre != 0 && tab->connexions[k].pidFenetre != m.expediteur && strlen(tab->connexions[k].nom) > 0)
@@ -210,20 +209,21 @@ int main()
                                       add.type = tab->connexions[k].pidFenetre;
                                       add.expediteur = getpid();
                                       add.requete = ADD_USER;
-                                      strcpy(add.data1, m.data2); // le nouveau nom
+                                      strcpy(add.data1, m.data2); 
                                       msgsnd(idQ, &add, sizeof(MESSAGE)-sizeof(long), 0);
                                       kill(tab->connexions[k].pidFenetre, SIGUSR1);
                                   }
                               }
+                              // client
                               for (int k = 0; k < 6; k++)
                               {
                                   if (tab->connexions[k].pidFenetre != 0 && tab->connexions[k].pidFenetre != m.expediteur && strlen(tab->connexions[k].nom) > 0)
                                   {
                                       MESSAGE add;
-                                      add.type = m.expediteur;        // nouveau client
+                                      add.type = m.expediteur;        
                                       add.expediteur = getpid();
                                       add.requete = ADD_USER;
-                                      strcpy(add.data1, tab->connexions[k].nom); // utilisateur déjà connecté
+                                      strcpy(add.data1, tab->connexions[k].nom); 
                                       msgsnd(idQ, &add, sizeof(MESSAGE)-sizeof(long), 0);
                                       kill(m.expediteur, SIGUSR1);
 
@@ -236,7 +236,7 @@ int main()
                               strcpy(reponse.data1, "0");
                           }
                       }
-                      else // Client existant
+                      else // 
                       {
                           if (position == 0)
                           {
@@ -250,13 +250,13 @@ int main()
                           }
                           else
                           {
-                              // Ajouter le client dans le tableau
+                              
                               int i = 0;
                               while (i < 6 && tab->connexions[i].pidFenetre != m.expediteur) i++;
                               pos = i;
                               i = 0;
-                              while (i < 6 && strcmp(tab->connexions[i].nom, m.data2) != 0) i++; // on regarde si l'utilisateur est deja connecté
-                              if (i < 6 && strcmp(tab->connexions[i].nom, m.data2) == 0) // une condition pour le précédent 
+                              while (i < 6 && strcmp(tab->connexions[i].nom, m.data2) != 0) i++; 
+                              if (i < 6 && strcmp(tab->connexions[i].nom, m.data2) == 0) 
                               {
                                 isFalse = true;
                               }
@@ -270,7 +270,7 @@ int main()
                                 tab->connexions[i].nom[0] = '\0';
                                 strcpy(tab->connexions[i].nom, m.data2);
 
-                                // Envoyer la liste des utilisateurs déjà connectés au nouveau client
+                                
                                 for (int k = 0; k < 6; k++)
                                 {
                                     if (tab->connexions[k].pidFenetre != 0 && tab->connexions[k].pidFenetre != m.expediteur && strlen(tab->connexions[k].nom) > 0)
@@ -279,7 +279,7 @@ int main()
                                         add.type = tab->connexions[k].pidFenetre;
                                         add.expediteur = getpid();
                                         add.requete = ADD_USER;
-                                        strcpy(add.data1, m.data2); // le nouveau nom
+                                        strcpy(add.data1, m.data2); 
                                         msgsnd(idQ, &add, sizeof(MESSAGE)-sizeof(long), 0);
                                         kill(tab->connexions[k].pidFenetre, SIGUSR1);
                                     }
@@ -289,10 +289,10 @@ int main()
                                     if (tab->connexions[k].pidFenetre != 0 && tab->connexions[k].pidFenetre != m.expediteur && strlen(tab->connexions[k].nom) > 0)
                                     {
                                         MESSAGE add;
-                                        add.type = m.expediteur;        // nouveau client
+                                        add.type = m.expediteur;        // nouveau 
                                         add.expediteur = getpid();
                                         add.requete = ADD_USER;
-                                        strcpy(add.data1, tab->connexions[k].nom); // utilisateur déjà connecté
+                                        strcpy(add.data1, tab->connexions[k].nom); 
                                         msgsnd(idQ, &add, sizeof(MESSAGE)-sizeof(long), 0);
                                         kill(m.expediteur, SIGUSR1);
                                     }
@@ -305,7 +305,7 @@ int main()
                               }
                           }
                       }
-                      // Envoyer réponse LOGIN au client
+                      
                       reponse.type = m.expediteur;
                       reponse.expediteur = getpid();
                       reponse.requete = LOGIN;
@@ -333,13 +333,13 @@ int main()
                           MESSAGE notif;
                           notif.type = tab->connexions[k].pidFenetre;
                           notif.expediteur = getpid();
-                          notif.requete = REMOVE_USER; // Requête pour notifier qu'un utilisateur s'est déconnecté
-                          strcpy(notif.data1, deconnecte); // Nom de l'utilisateur qui s'est déconnecté
+                          notif.requete = REMOVE_USER; 
+                          strcpy(notif.data1, deconnecte); 
                           if (msgsnd(idQ, &notif, sizeof(MESSAGE) - sizeof(long), 0) == -1) 
                           {
                               perror("(SERVEUR) Erreur envoi DELETE_USER");
                           }
-                          kill(tab->connexions[k].pidFenetre, SIGUSR1); // Notifier le client
+                          kill(tab->connexions[k].pidFenetre, SIGUSR1); // client
                         }
                         for (int j = 0; j < 5; j++) 
                         {
@@ -368,15 +368,15 @@ int main()
                         {
                           if (tab->connexions[i].pidFenetre != 0 && tab->connexions[i].pidFenetre == m.expediteur) 
                           {
-                              // Chercher une case libre dans "autres[]" de ce client
+                              
                               for (int j = 0; j < 5; j++) 
                               {
                                   if (tab->connexions[i].autres[j] == 0 ) 
                                   {
-                                      tab->connexions[i].autres[j] = r.expediteur; // ajouter PID du client accepté
+                                      tab->connexions[i].autres[j] = r.expediteur; 
                                       fprintf(stderr,"(SERVEUR) PID %d ajouté à tab->connexions[%d].autres[%d]\n",
                                               m.expediteur, i, j);
-                                      break; // on remplit qu'une seule case
+                                      break; 
                                   }
                               }
                           }
@@ -399,13 +399,13 @@ int main()
                       {
                         if (tab->connexions[i].pidFenetre != 0 && tab->connexions[i].pidFenetre == m.expediteur) 
                         {
-                            // Chercher une case libre dans "autres[]" de ce client
+                            
                             for (int j = 0; j < 5; j++) 
                             {
                                 if (tab->connexions[i].autres[j] == r.expediteur) 
                                 {
-                                    tab->connexions[i].autres[j] = 0; // ajouter PID du client accepté
-                                    break; // on remplit qu'une seule case
+                                    tab->connexions[i].autres[j] = 0; 
+                                    break;
                                 }
                             }
                         }
@@ -419,7 +419,7 @@ int main()
                       {
                           if (tab->connexions[i].pidFenetre != 0 && tab->connexions[i].pidFenetre == m.expediteur) 
                           {
-                            // Chercher les cases qui ne sont pas vides
+                            
                             for (int j = 0; j < 5; j++) 
                             {
                                 m.type = tab->connexions[i].autres[j];
@@ -447,7 +447,7 @@ int main()
                             break;
                           }
                       }
-                      if (temp == 1) // n'envoyer qu'une seule fois le message vers celui qui a envoyé le message
+                      if (temp == 1)
                       {  
                         tmp = m;
                         tmp.requete = SEND;
@@ -493,7 +493,7 @@ int main()
 
       case MODIF1 :
                       fprintf(stderr,"(SERVEUR %d) Requete MODIF1 reçue de %d\n",getpid(),m.expediteur);
-                      // trouver l'utilisateur
+                      // user
                       i = 0;
                       while (i < 6 && tab->connexions[i].pidFenetre != 0 && tab->connexions[i].pidFenetre != m.expediteur)
                           i++;
@@ -517,7 +517,7 @@ int main()
                       tab->connexions[i].pidModification = pidModif;
                       strcpy(m.data1, tab->connexions[i].nom);
                       m.type = pidModif;
-                      // Transmettre la requête au processus Modification
+                      // Modification
                       if (msgsnd(idQ, &m, sizeof(MESSAGE)-sizeof(long), 0) == -1)
                       {
                           perror("msgsnd MODIF1");

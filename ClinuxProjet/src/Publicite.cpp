@@ -60,7 +60,7 @@ int main()
       fprintf(stderr, "(PUBLICITE %d) Fichier absent, attente SIGUSR1...\n", getpid());
       reveil = 0;
       while (!reveil)
-        pause();   // attente du signal
+        pause();   // signal
     }
 
     fprintf(stderr, "(PUBLICITE %d) Debut boucle de publicites\n", getpid());
@@ -72,8 +72,7 @@ int main()
         
         if (r == 0)
         {
-            // Fin de fichier
-            lseek(fd, 0, SEEK_SET); // on recommence
+            lseek(fd, 0, SEEK_SET); // recommencer
         }
         else if (r < 0)
         {
@@ -81,12 +80,10 @@ int main()
             exit(1);
         }
 
-        // Copier la publicité dans la mémoire partagée (200 chars)
         strcpy(memPub, pub.texte);
 
-        // Envoi UPDATE_PUB au serveur
         MESSAGE m;
-        m.type = 1;                // type quelconque (non utilisé)
+        m.type = 1;
         m.expediteur = getpid();
         m.requete = UPDATE_PUB;
 
@@ -96,7 +93,6 @@ int main()
             pause();
         }
 
-        // Attente du nombre de secondes indiqué
         if (pub.nbSecondes > 0)
             sleep(pub.nbSecondes);
     }
